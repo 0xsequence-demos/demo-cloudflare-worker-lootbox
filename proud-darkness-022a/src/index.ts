@@ -277,7 +277,7 @@ const Inference = (base: any) => {
 		...base,
 		getInferenceWithItem: async (prompt: any) => {
 			return new Promise( async (res) => {
-				fetch(`https://api.cloud.scenario.com/v1/models/${env.SCENARIO_MODEL_ID}/inferences`, {
+				fetch(`https://api.cloud.scenario.com/v1/models/${base.env.SCENARIO_MODEL_ID}/inferences`, {
 					method: 'POST',
 					headers: {
 						'Authorization': `Basic ${base.env.SCENARIO_API_KEY}`,
