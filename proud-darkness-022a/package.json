@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@0xsequence/auth": "^1.9.17",
+    "@0xsequence/indexer": "^1.9.17",
     "@0xsequence/network": "^1.9.17",
     "api": "^6.1.1",
     "aws-sdk": "^2.1561.0",

@@ -7,7 +7,9 @@ export interface Env {
 	CLIENT_URL: string;
 	CHAIN_HANDLE: string;
 	PKEY: string;
+	ADMIN: string;
 	CONTRACT_ADDRESS: string;
+	DAILY_MINT_RESTRICTION: number;
 	SCENARIO_MODEL_ID: string;
 	SCENARIO_API_KEY: string;
 	ACCESS_KEY_ID: string;
@@ -379,12 +381,77 @@ const Inference = (base: any) => {
 	}
 }
 
+// Works in both a Webapp (browser) or Node.js:
+import { SequenceIndexer } from '@0xsequence/indexer'
+
+const isLessThan24Hours = (isoDate: string) => {
+    const dateProvided: any = new Date(isoDate);
+    const currentDate: any = new Date();
+    const twentyFourHours = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+    // Calculate the difference in milliseconds
+    const difference = currentDate - dateProvided;
+
+    // Check if the difference is less than 24 hours
+    return difference < twentyFourHours && difference > 0;
+}
+
+const fullPaginationDay = async (env: Env, address: string) => {
+    const txs: any = []
+	const indexer = new SequenceIndexer(`https://${env.CHAIN_HANDLE}-indexer.sequence.app`, env.PROJECT_ACCESS_KEY)
+
+    // here we query the Joy contract address, but you can use any
+    const filter = {
+        accountAddress: address,
+    };
+
+    // query Sequence Indexer for all token transaction history on Mumbai
+
+	let txHistory: any
+	let firstLoop = true;
+    // if there are more transactions to log, proceed to paginate
+    while(firstLoop || txHistory.page.more){  
+		if(firstLoop){
+			txHistory = await indexer.getTransactionHistory({
+				filter: filter,
+				page: { pageSize: 50 }
+			})
+		}
+		firstLoop = false
+        txHistory = await indexer.getTransactionHistory({
+            filter: filter,
+            page: { 
+                pageSize: 50, 
+                // use the after cursor from the previous indexer call
+                after: txHistory!.page!.after! 
+            }
+        })
+		for(let i = 0; i < txHistory.transactions.length; i++){
+			if(!isLessThan24Hours(txHistory.transactions[i].timestamp)){
+				break;
+			}
+			txs.push(txHistory.transactions[i])
+		}
+    }
+
+    return txs
+}
+
+const hasDailyMintRetriction = async (env: Env, address: string) => {
+	let count = 0
+	const txs = await fullPaginationDay(env, address)
+	for(let i = 0; i < txs.length; i++){
+		if(txs[i].transfers[0].from == '0x0000000000000000000000000000000000000000') count++
+	}
+	return count < env.DAILY_MINT_RESTRICTION
+}
+
 async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 
 	const originUrl = new URL(request.url);
 	const referer = request.headers.get('Referer');
 
-	if(referer.toString() == env.CLIENT_URL){
+	if(referer.toString() == env.CLIENT_URL || referer.toString() == 'http://localhost:5173/'){
 		if (request.method === "OPTIONS") {
 			return new Response(null, {
 				headers: {
@@ -411,6 +478,16 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 			if(env.DEV) env.PROJECT_ACCESS_KEY = env.PROJECT_ACCESS_KEY_DEV
 			else env.PROJECT_ACCESS_KEY = env.PROJECT_ACCESS_KEY_PROD
 
+			const payload = await request.json()
+			const { address, tokenID, mint }: any = payload
+			const chainConfig: any = findSupportedNetwork(env.CHAIN_HANDLE)
+
+			if(address.toLowerCase() != env.ADMIN.toLowerCase()){
+				if(!await hasDailyMintRetriction(env, address)){
+					return new Response(JSON.stringify({limitExceeded: true}), { status: 400 })
+				}
+			}
+
 			let lootbox = ProcessInferencePool(
 				Inference(
 					Time(
@@ -424,10 +501,6 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 					)
 				)
 			)
-
-			const payload = await request.json()
-			const { address, tokenID, mint }: any = payload
-			const chainConfig: any = findSupportedNetwork(env.CHAIN_HANDLE)
 
 			if(mint){
 				try {
