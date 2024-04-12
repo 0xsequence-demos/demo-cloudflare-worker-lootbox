@@ -9,6 +9,7 @@ node_compat = true # add this line
 # Docs: https://developers.cloudflare.com/workers/platform/environment-variables
 
 [vars]
+DEV = true
 CLIENT_URL = ''
 CHAIN_HANDLE = ''
 PROJECT_ID = 0
@@ -17,10 +18,9 @@ SCENARIO_MODEL_ID = ""
 SCENARIO_API_KEY = ""
 PKEY = ""
 CONTRACT_ADDRESS = ""
-PROJECT_ACCESS_KEY_DEV= ""
+PROJECT_ACCESS_KEY_DEV = ""
 PROJECT_ACCESS_KEY_PROD = ""
 JWT_ACCESS_KEY = ""
-JWT_ACCESS_KEY_2 = ''
 
 # Bind a KV Namespace. Use KV as persistent storage for small key-value pairs.
 # Docs: https://developers.cloudflare.com/workers/runtime-apis/kv

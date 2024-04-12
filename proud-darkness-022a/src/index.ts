@@ -3,6 +3,7 @@ import { ethers } from 'ethers'
 import { Session, SessionSettings } from '@0xsequence/auth'
 
 export interface Env {
+	DEV: boolean;
 	CLIENT_URL: string;
 	CHAIN_HANDLE: string;
 	PKEY: string;
@@ -12,6 +13,7 @@ export interface Env {
 	ACCESS_KEY_ID: string;
 	PROJECT_ID: number;
 	COLLECTION_ID: string;
+	PROJECT_ACCESS_KEY: string;
 	PROJECT_ACCESS_KEY_DEV: string;
 	PROJECT_ACCESS_KEY_PROD: string;
 	JWT_ACCESS_KEY: string;
@@ -32,7 +34,7 @@ const ProcessInferencePool = (base: any) => {
 		const data: any= await response.json(); 
 
 	  	const attributes = []
-	  	const defend = Math.random() > 0.5 ? true : false
+	  	const defend = Math.random() >= 0.5 ? true : false
 
 		// category
 		attributes.push({
@@ -156,8 +158,16 @@ const Upload = (base: any) => {
 		
 		formData.append('file', blob, `image.png`); // You might want to dynamically determine the filename
 	  
+		let METADATA_URL;
+
+		if(base.env.DEV){
+			METADATA_URL = 'https://dev-metadata.sequence.app'
+		} else {
+			METADATA_URL = 'https://metadata.sequence.app'
+		}
+
 		// Construct the endpoint URL
-		const endpointURL = `https://dev-metadata.sequence.app/projects/${projectID}/collections/${collectionID}/tokens/${tokenID}/upload/${assetID}`;
+		const endpointURL = `${METADATA_URL}/projects/${projectID}/collections/${collectionID}/tokens/${tokenID}/upload/${assetID}`;
 
 		try {
 		  // Use fetch to make the request
@@ -165,7 +175,7 @@ const Upload = (base: any) => {
 			method: 'PUT',
 			body: formData,
 			headers: {
-			  'X-Access-Key': base.env.PROJECT_ACCESS_KEY_DEV,
+			  'X-Access-Key': base.env.PROJECT_ACCESS_KEY,
 			  'Authorization': `Bearer ${base.env.JWT_ACCESS_KEY}`, // Put your token here
 			},
 		  });
@@ -182,6 +192,13 @@ const Upload = (base: any) => {
 	return {
 		...base,
 		upload: async (name: any, attributes: any, imageUrl: any) => {
+			let METADATA_URL;
+
+			if(base.env.DEV){
+				METADATA_URL = 'https://dev-metadata.sequence.app'
+			} else {
+				METADATA_URL = 'https://metadata.sequence.app'
+			}
 
 			try{
 				const myHeaders = new Headers();
@@ -213,7 +230,7 @@ const Upload = (base: any) => {
 					body: raw2,
 				};
 
-				const res2 = await fetch("https://dev-metadata.sequence.app/rpc/Collections/CreateToken", requestOptions)
+				const res2 = await fetch(`${METADATA_URL}/rpc/Collections/CreateToken`, requestOptions)
 				const json2: any = await res2.json()
 
 				// create asset
@@ -232,7 +249,7 @@ const Upload = (base: any) => {
 					body: raw3,
 				};
 
-				const res3 = await fetch("https://dev-metadata.sequence.app/rpc/Collections/CreateAsset", requestOptions3)
+				const res3 = await fetch(`${METADATA_URL}/rpc/Collections/CreateAsset`, requestOptions3)
 				const json3: any = await res3.json()
 
 				// upload asset
@@ -252,7 +269,7 @@ const Upload = (base: any) => {
 				};
 
 				// update token to not be private
-				const res4 = await fetch("https://dev-metadata.sequence.app/rpc/Collections/UpdateToken", requestOptions4)
+				const res4 = await fetch(`${METADATA_URL}/rpc/Collections/UpdateToken`, requestOptions4)
 				const json4 = await res4.json()
 
 				return {url: uploadAssetRes.url, tokenID: String(randomNonceSpace)}
@@ -391,6 +408,9 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 
 		try {
 
+			if(env.DEV) env.PROJECT_ACCESS_KEY = env.PROJECT_ACCESS_KEY_DEV
+			else env.PROJECT_ACCESS_KEY = env.PROJECT_ACCESS_KEY_PROD
+
 			let lootbox = ProcessInferencePool(
 				Inference(
 					Time(
@@ -421,7 +441,7 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 				const loot = await lootbox.generate()
 				const id = await lootbox.getInferenceWithItem(loot.loot.name)
 				const resObject = await lootbox.getInferenceStatus(id)
-				const response = await lootbox.upload(loot.loot.name, loot.attributes, resObject.inference.images[0].url)
+				const response = await lootbox.upload(loot.loot.name + " " + loot.loot.type, loot.attributes, resObject.inference.images[0].url)
 				return new Response(JSON.stringify({loot: loot, image: response.url, name: loot.loot.name, tokenID: response.tokenID}), { status: 200 });
 			}
 		} catch (error) {
