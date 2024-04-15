@@ -1,4 +1,4 @@
-import { networks, findSupportedNetwork, toChainIdNumber, NetworkConfig } from '@0xsequence/network'
+import { networks, findSupportedNetwork, NetworkConfig } from '@0xsequence/network'
 import { ethers } from 'ethers'
 import { Session, SessionSettings } from '@0xsequence/auth'
 
@@ -83,23 +83,6 @@ const Strings = (base: any) => {
 	base.removeCharacter = (str: any, charToRemove: any)=>{
 		return str.replace(new RegExp(charToRemove, 'g'), '');
 	}
-
-	base.isValidKey = (data: any) => {
-		try {
-			// Check if 'data' is an object and has 'inference' property
-			if (typeof data === 'object' && data !== null && 'inference' in data) {
-				// Check if 'inference' has 'images' property which is an array
-				if (Array.isArray(data.inference.images) && data.inference.images.length > 0) {
-					// Check if the first element of 'images' array has 'url' property
-					return 'url' in data.inference.images[0]
-				}
-			}
-		} catch (error) {
-			console.error("An error occurred:", error)
-		}
-		return false;
-	}
-
 	base.formatStatString = (str: any, main = true) => {
 		if(str == null ) return []
 		const regex = /^(.*?)\s*([+-]?\d+)(-)?(\d+)?(%?)$/;
@@ -211,14 +194,14 @@ const Upload = (base: any) => {
 				const projectID = base.env.PROJECT_ID
 
 				// tokenID
-				const randomNonceSpace = ethers.BigNumber.from(ethers.utils.hexlify(ethers.utils.randomBytes(20)))
+				const randomTokenIDSpace = ethers.BigNumber.from(ethers.utils.hexlify(ethers.utils.randomBytes(20)))
 
 				// create token
 				const raw2 = JSON.stringify({
 					"projectID": projectID,
 					"collectionID": collectionID,
 					"token": {
-						"tokenId": String(randomNonceSpace),
+						"tokenId": String(randomTokenIDSpace),
 						"name": name,
 						"description": "A free lootbox mini-game available for use in any game that requires collectible rewards",
 						"decimals": 0,
@@ -240,7 +223,7 @@ const Upload = (base: any) => {
 					"projectID": projectID,
 					"asset": {
 						"collectionId": collectionID,
-						"tokenId": String(randomNonceSpace),
+						"tokenId": String(randomTokenIDSpace),
 						"metadataField": "image"
 					}
 				});
@@ -255,13 +238,13 @@ const Upload = (base: any) => {
 				const json3: any = await res3.json()
 
 				// upload asset
-				const uploadAssetRes = await base.uploadAsset(projectID, collectionID, json3.asset.id, String(randomNonceSpace), imageUrl)
+				const uploadAssetRes = await base.uploadAsset(projectID, collectionID, json3.asset.id, String(randomTokenIDSpace), imageUrl)
 
 				const raw4 = JSON.stringify({
 					"projectID": projectID,
 					"collectionID": collectionID,
 					"private": false,
-					"tokenID": String(randomNonceSpace)
+					"tokenID": String(randomTokenIDSpace)
 				});
 
 				const requestOptions4 = {
@@ -274,7 +257,7 @@ const Upload = (base: any) => {
 				const res4 = await fetch(`${METADATA_URL}/rpc/Collections/UpdateToken`, requestOptions4)
 				const json4 = await res4.json()
 
-				return {url: uploadAssetRes.url, tokenID: String(randomNonceSpace)}
+				return {url: uploadAssetRes.url, tokenID: String(randomTokenIDSpace)}
 			}catch(err){
 				console.log(err)
 			}
@@ -409,13 +392,21 @@ const fullPaginationDay = async (env: Env, address: string) => {
 
 	let txHistory: any
 	let firstLoop = true;
+	let finished = true;
     // if there are more transactions to log, proceed to paginate
-    while(firstLoop || txHistory.page.more){  
+    while(firstLoop || (!finished && txHistory.page.more)){  
 		if(firstLoop){
 			txHistory = await indexer.getTransactionHistory({
 				filter: filter,
 				page: { pageSize: 50 }
 			})
+
+			for(let i = 0; i < txHistory.transactions.length; i++){
+				if(!isLessThan24Hours(txHistory.transactions[i].timestamp)){
+					finished = true
+				}
+				txs.push(txHistory.transactions[i])
+			}
 		}
 		firstLoop = false
         txHistory = await indexer.getTransactionHistory({
@@ -428,7 +419,7 @@ const fullPaginationDay = async (env: Env, address: string) => {
         })
 		for(let i = 0; i < txHistory.transactions.length; i++){
 			if(!isLessThan24Hours(txHistory.transactions[i].timestamp)){
-				break;
+				finished = true
 			}
 			txs.push(txHistory.transactions[i])
 		}
@@ -437,12 +428,20 @@ const fullPaginationDay = async (env: Env, address: string) => {
     return txs
 }
 
-const hasDailyMintRetriction = async (env: Env, address: string) => {
+const mintCount = (env: Env, txs: any) => {
 	let count = 0
-	const txs = await fullPaginationDay(env, address)
 	for(let i = 0; i < txs.length; i++){
-		if(txs[i].transfers[0].from == '0x0000000000000000000000000000000000000000') count++
+		if(
+			txs[i].transfers[0].from == '0x0000000000000000000000000000000000000000' 
+			&& txs[i].transfers[0].contractAddress == env.CONTRACT_ADDRESS.toLowerCase()
+		) count++
 	}
+	return count
+}
+
+const hasDailyMintAllowance = async (env: Env, address: string) => {
+	const txs = await fullPaginationDay(env, address)
+	const count = mintCount(env, txs)
 	return count < env.DAILY_MINT_RESTRICTION
 }
 
@@ -451,7 +450,7 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 	const originUrl = new URL(request.url);
 	const referer = request.headers.get('Referer');
 
-	if(referer.toString() == env.CLIENT_URL || referer.toString() == 'http://localhost:5173/'){
+	if(referer.toString() == env.CLIENT_URL){
 		if (request.method === "OPTIONS") {
 			return new Response(null, {
 				headers: {
@@ -480,10 +479,9 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 
 			const payload = await request.json()
 			const { address, tokenID, mint }: any = payload
-			const chainConfig: any = findSupportedNetwork(env.CHAIN_HANDLE)
 
 			if(address.toLowerCase() != env.ADMIN.toLowerCase()){
-				if(!await hasDailyMintRetriction(env, address)){
+				if(!await hasDailyMintAllowance(env, address)){
 					return new Response(JSON.stringify({limitExceeded: true}), { status: 400 })
 				}
 			}
@@ -504,7 +502,7 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 
 			if(mint){
 				try {
-					const txn = await callContract(env, chainConfig, env.CONTRACT_ADDRESS, address, tokenID)
+					const txn = await callContract(env, env.CONTRACT_ADDRESS, address, tokenID)
 					return new Response(JSON.stringify({txnHash: txn.hash}), { status: 200 })
 				} catch(error: any) {
 					console.log(error)
@@ -542,7 +540,9 @@ export default {
 	}
 };
 
-const callContract = async (env: Env, chainConfig: NetworkConfig, collectionAddress: string, address: string, tokenID: number): Promise<ethers.providers.TransactionResponse> => {
+const callContract = async (env: Env, collectibleAddress: string, address: string, tokenID: number): Promise<ethers.providers.TransactionResponse> => {
+	const chainConfig: NetworkConfig = findSupportedNetwork(env.CHAIN_HANDLE)!
+	
 	const provider = new ethers.providers.StaticJsonRpcProvider({
 		url: chainConfig.rpcUrl, 
 		skipFetchSetup: true // Required for ethers.js Cloudflare Worker support
@@ -586,7 +586,7 @@ const callContract = async (env: Env, chainConfig: NetworkConfig, collectionAddr
 	)
 
 	const txn = {
-		to: collectionAddress, 
+		to: collectibleAddress, 
 		data: data
 	}
 
