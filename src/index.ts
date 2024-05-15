@@ -1,6 +1,7 @@
 import { networks, findSupportedNetwork, NetworkConfig } from '@0xsequence/network'
 import { ethers } from 'ethers'
 import { Session, SessionSettings } from '@0xsequence/auth'
+import { SequenceCollections } from '@0xsequence/metadata'
 
 export interface Env {
 	DEV: boolean;
@@ -28,7 +29,7 @@ const ProcessInferencePool = (base: any) => {
 		const init = {
 			method: 'GET',
 			headers: {
-			'Content-Type': 'application/json',
+				'Content-Type': 'application/json',
 			},
 		};
 
@@ -185,10 +186,14 @@ const Upload = (base: any) => {
 				METADATA_URL = 'https://metadata.sequence.app'
 			}
 
-			try{
-				const myHeaders = new Headers();
-				myHeaders.append("Content-Type", "application/json");
-				myHeaders.append("Authorization", `Bearer ${base.env.JWT_ACCESS_KEY}`);
+			try {
+				// const myHeaders = new Headers();
+				// myHeaders.append("Content-Type", "application/json");
+				// myHeaders.append("Authorization", `Bearer ${base.env.JWT_ACCESS_KEY}`);
+				
+				const collectionsService = new SequenceCollections(METADATA_URL, base.env.JWT_ACCESS_KEY)
+
+				// TODO: refactor below code to use collectionsService instead of direct fetch calls..
 				
 				const collectionID = base.env.COLLECTION_ID
 				const projectID = base.env.PROJECT_ID
@@ -197,26 +202,33 @@ const Upload = (base: any) => {
 				const randomTokenIDSpace = ethers.BigNumber.from(ethers.utils.hexlify(ethers.utils.randomBytes(20)))
 
 				// create token
-				const raw2 = JSON.stringify({
-					"projectID": projectID,
-					"collectionID": collectionID,
-					"token": {
-						"tokenId": String(randomTokenIDSpace),
-						"name": name,
-						"description": "A free lootbox mini-game available for use in any game that requires collectible rewards",
-						"decimals": 0,
-						"attributes": attributes
+				// const raw2 = JSON.stringify({
+				// 	"projectID": projectID,
+				// 	"collectionID": collectionID,
+				// 	"token": {
+				// 		"tokenId": String(randomTokenIDSpace),
+				// 		"name": name,
+				// 		"description": "A free lootbox mini-game available for use in any game that requires collectible rewards",
+				// 		"decimals": 0,
+				// 		"attributes": attributes
+				// 	}
+				// });
+
+
+				const res2 = await collectionsService.createToken({
+					projectId: projectID,
+					collectionId: collectionID,
+					token: {
+						tokenId: String(randomTokenIDSpace),
+						name: name,
+						description: "A free lootbox mini-game available for use in any game that requires collectible rewards",
+						decimals: 0,
+						attributes: attributes
 					}
-				});
+				})
 
-				const requestOptions = {
-					method: "POST",
-					headers: myHeaders,
-					body: raw2,
-				};
-
-				const res2 = await fetch(`${METADATA_URL}/rpc/Collections/CreateToken`, requestOptions)
-				const json2: any = await res2.json()
+				// const res2 = await fetch(`${METADATA_URL}/rpc/Collections/CreateToken`, requestOptions)
+				// const json2: any = await res2.json()
 
 				// create asset
 				const raw3 = JSON.stringify({
