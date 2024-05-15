@@ -1,15 +1,26 @@
 {
-  "name": "generation-api",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "proud-darkness-022a",
+  "version": "0.0.0",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "start": "wrangler dev"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
-    "wrangler": "^3.28.2"
+    "@cloudflare/workers-types": "^4.20240208.0",
+    "typescript": "^5.0.4",
+    "wrangler": "^3.0.0"
+  },
+  "dependencies": {
+    "@0xsequence/auth": "^1.9.26",
+    "@0xsequence/indexer": "^1.9.26",
+    "@0xsequence/network": "^1.9.26",
+    "@0xsequence/metadata": "^1.9.26",
+    "api": "^6.1.1",
+    "aws-sdk": "^2.1561.0",
+    "ethers": "5.7.2",
+    "form-data": "^4.0.0",
+    "stream": "^0.0.2"
   }
 }

@@ -1,4 +1,4 @@
+.wrangler
 /node_modules
-/proud-darkness-022a/node_modules
-/proud-darkness-022a/wrangler.toml
-/proud-darkness-022a/wrangler.sepolia.toml
+/wrangler.toml
+/wrangler.sepolia.toml
