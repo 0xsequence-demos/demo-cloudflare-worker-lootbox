@@ -23,53 +23,58 @@ export interface Env {
 
 const ProcessInferencePool = (base: any) => {
 	base.generate = async () => {
-		const url = 'https://flask-production-2641.up.railway.app/'; // External API endpoint
+		try {
+			const url = 'https://flask-production-2641.up.railway.app/'; // External API endpoint
 		
-		const init = {
-			method: 'GET',
-			headers: {
-			'Content-Type': 'application/json',
-			},
-		};
-
-		const response = await fetch(url, init); // Fetch data from external API
-		const data: any= await response.json(); 
-
-	  	const attributes = []
-	  	const defend = Math.random() >= 0.5 ? true : false
-
-		// category
-		attributes.push({
-		  display_type: "category",
-		  trait_type: "Category",
-		  value: data[defend ? 'armor' : 'weapon'].category
-		})
-
-		// main stats
-		attributes.push(...base.formatStatString(data[defend ? 'armor' : 'weapon'].main_stats[0], true))
-
-		// sub stats
-		const sub_stats = data[defend ? 'armor' : 'weapon'].stats
-
-		// tier
-		sub_stats.map((stats: any) => {
-		  attributes.push(...base.formatStatString(stats, false))
-		})
-
-		// type
-		attributes.push({
-		  display_type: "tier",
-		  trait_type: "tier",
-		  value: data[defend ? 'armor' : 'weapon'].tier
-		})
-
-		attributes.push({
-		  display_type: "type",
-		  trait_type: "type",
-		  value: data[defend ? 'armor' : 'weapon'].type
-		})
-		
-		return {loot: data[defend ? 'armor' : 'weapon'], attributes: attributes}
+			const init = {
+				method: 'GET',
+				headers: {
+				'Content-Type': 'application/json',
+				},
+			};
+	
+			const response = await fetch(url, init); // Fetch data from external API
+			const data: any= await response.json(); 
+			console.log(data)
+			  const attributes = []
+			  const defend = Math.random() >= 0.5 ? true : false
+	
+			// category
+			attributes.push({
+			  display_type: "category",
+			  trait_type: "Category",
+			  value: data[defend ? 'armor' : 'weapon'].category
+			})
+	
+			// main stats
+			attributes.push(...base.formatStatString(data[defend ? 'armor' : 'weapon'].main_stats[0], true))
+	
+			// sub stats
+			const sub_stats = data[defend ? 'armor' : 'weapon'].stats
+	
+			// tier
+			sub_stats.map((stats: any) => {
+			  attributes.push(...base.formatStatString(stats, false))
+			})
+	
+			// type
+			attributes.push({
+			  display_type: "tier",
+			  trait_type: "tier",
+			  value: data[defend ? 'armor' : 'weapon'].tier
+			})
+	
+			attributes.push({
+			  display_type: "type",
+			  trait_type: "type",
+			  value: data[defend ? 'armor' : 'weapon'].type
+			})
+			
+			return {loot: data[defend ? 'armor' : 'weapon'], attributes: attributes}
+		}catch(err: any){
+			console.log(err)
+			throw new Error(err)
+		}
 	}
 	return {
 		...base
@@ -197,7 +202,7 @@ const Upload = (base: any) => {
 				const randomTokenIDSpace = ethers.BigNumber.from(ethers.utils.hexlify(ethers.utils.randomBytes(20)))
 
 				// create token
-				const raw2 = JSON.stringify({
+				const stringBody = JSON.stringify({
 					"projectID": projectID,
 					"collectionID": collectionID,
 					"token": {
@@ -212,14 +217,14 @@ const Upload = (base: any) => {
 				const requestOptions = {
 					method: "POST",
 					headers: myHeaders,
-					body: raw2,
+					body: stringBody,
 				};
 
-				const res2 = await fetch(`${METADATA_URL}/rpc/Collections/CreateToken`, requestOptions)
-				const json2: any = await res2.json()
+				const res = await fetch(`${METADATA_URL}/rpc/Collections/CreateToken`, requestOptions)
+				const json: any = await res.json()
 
 				// create asset
-				const raw3 = JSON.stringify({
+				const stringBody2 = JSON.stringify({
 					"projectID": projectID,
 					"asset": {
 						"collectionId": collectionID,
@@ -228,38 +233,39 @@ const Upload = (base: any) => {
 					}
 				});
 
-				const requestOptions3 = {
+				const requestOptions2 = {
 					method: "POST",
 					headers: myHeaders,
-					body: raw3,
+					body: stringBody2,
 				};
 
-				const res3 = await fetch(`${METADATA_URL}/rpc/Collections/CreateAsset`, requestOptions3)
-				const json3: any = await res3.json()
-
+				const res2 = await fetch(`${METADATA_URL}/rpc/Collections/CreateAsset`, requestOptions2)
+				const json2: any = await res2.json()
+				console.log(json2)
 				// upload asset
-				const uploadAssetRes = await base.uploadAsset(projectID, collectionID, json3.asset.id, String(randomTokenIDSpace), imageUrl)
+				const uploadAssetRes = await base.uploadAsset(projectID, collectionID, json2.asset.id, String(randomTokenIDSpace), imageUrl)
 
-				const raw4 = JSON.stringify({
+				// update token to not be private
+				const stringBody3 = JSON.stringify({
 					"projectID": projectID,
 					"collectionID": collectionID,
 					"private": false,
 					"tokenID": String(randomTokenIDSpace)
 				});
 
-				const requestOptions4 = {
+				const requestOptions3 = {
 					method: "POST",
 					headers: myHeaders,
-					body: raw4,
+					body: stringBody3,
 				};
 
-				// update token to not be private
-				const res4 = await fetch(`${METADATA_URL}/rpc/Collections/UpdateToken`, requestOptions4)
-				const json4 = await res4.json()
+				const res3 = await fetch(`${METADATA_URL}/rpc/Collections/UpdateToken`, requestOptions3)
+				const json3 = await res3.json()
 
 				return {url: uploadAssetRes.url, tokenID: String(randomTokenIDSpace)}
 			}catch(err){
 				console.log(err)
+				throw new Error('Sequence Metadata Service Fail')
 			}
 		},
 	}
@@ -354,6 +360,7 @@ const Inference = (base: any) => {
 					} else {
 						console.log('Inference failed!');
 						console.log(inferenceData); // Print inference data
+						throw new Error("Scenario API Failed")
 					}
 				};
 
@@ -383,12 +390,9 @@ const fullPaginationDay = async (env: Env, address: string) => {
     const txs: any = []
 	const indexer = new SequenceIndexer(`https://${env.CHAIN_HANDLE}-indexer.sequence.app`, env.PROJECT_ACCESS_KEY)
 
-    // here we query the Joy contract address, but you can use any
     const filter = {
         accountAddress: address,
     };
-
-    // query Sequence Indexer for all token transaction history on Mumbai
 
 	let txHistory: any
 	let firstLoop = true;
@@ -449,8 +453,10 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 
 	const originUrl = new URL(request.url);
 	const referer = request.headers.get('Referer');
-
+	console.log(referer.toString())
+	console.log(referer.toString() == env.CLIENT_URL)
 	if(referer.toString() == env.CLIENT_URL){
+		console.log('in here')
 		if (request.method === "OPTIONS") {
 			return new Response(null, {
 				headers: {
@@ -479,12 +485,14 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 
 			const payload = await request.json()
 			const { address, tokenID, mint }: any = payload
-
-			if(address.toLowerCase() != env.ADMIN.toLowerCase()){
-				if(!await hasDailyMintAllowance(env, address)){
-					return new Response(JSON.stringify({limitExceeded: true}), { status: 400 })
-				}
-			}
+			console.log(address)
+			console.log(tokenID)
+			console.log(mint)
+			// if(address.toLowerCase() != env.ADMIN.toLowerCase()){
+			// 	if(!await hasDailyMintAllowance(env, address)){
+			// 		return new Response(JSON.stringify({limitExceeded: true}), { status: 400 })
+			// 	}
+			// }
 
 			let lootbox = ProcessInferencePool(
 				Inference(
@@ -510,9 +518,9 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 				}
 			} else {
 				const loot = await lootbox.generate()
-				const id = await lootbox.getInferenceWithItem(loot.loot.name)
-				const resObject = await lootbox.getInferenceStatus(id)
-				const response = await lootbox.upload(loot.loot.name + " " + loot.loot.type, loot.attributes, resObject.inference.images[0].url)
+				const inferenceId = await lootbox.getInferenceWithItem(loot.loot.name + " " + loot.loot.type)
+				const resObject = await lootbox.getInferenceStatus(inferenceId)
+				const response = await lootbox.upload(loot.loot.name, loot.attributes, resObject.inference.images[0].url)
 				return new Response(JSON.stringify({loot: loot, image: response.url, name: loot.loot.name, tokenID: response.tokenID}), { status: 200 });
 			}
 		} catch (error) {
