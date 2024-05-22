@@ -1,4 +1,4 @@
 .wrangler
 /node_modules
-/wrangler.toml
-/wrangler.sepolia.toml
+wrangler.toml
+wrangler.sepolia.toml

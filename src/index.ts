@@ -152,6 +152,9 @@ const Upload = (base: any) => {
 			METADATA_URL = 'https://metadata.sequence.app'
 		}
 
+		// TODO
+		// const collectionsService = new SequenceCollections(METADATA_URL, base.env.JWT_ACCESS_KEY)
+
 		// Construct the endpoint URL
 		const endpointURL = `${METADATA_URL}/projects/${projectID}/collections/${collectionID}/tokens/${tokenID}/upload/${assetID}`;
 
@@ -187,33 +190,14 @@ const Upload = (base: any) => {
 			}
 
 			try {
-				// const myHeaders = new Headers();
-				// myHeaders.append("Content-Type", "application/json");
-				// myHeaders.append("Authorization", `Bearer ${base.env.JWT_ACCESS_KEY}`);
 				
 				const collectionsService = new SequenceCollections(METADATA_URL, base.env.JWT_ACCESS_KEY)
 
-				// TODO: refactor below code to use collectionsService instead of direct fetch calls..
-				
 				const collectionID = base.env.COLLECTION_ID
 				const projectID = base.env.PROJECT_ID
 
 				// tokenID
 				const randomTokenIDSpace = ethers.BigNumber.from(ethers.utils.hexlify(ethers.utils.randomBytes(20)))
-
-				// create token
-				// const raw2 = JSON.stringify({
-				// 	"projectID": projectID,
-				// 	"collectionID": collectionID,
-				// 	"token": {
-				// 		"tokenId": String(randomTokenIDSpace),
-				// 		"name": name,
-				// 		"description": "A free lootbox mini-game available for use in any game that requires collectible rewards",
-				// 		"decimals": 0,
-				// 		"attributes": attributes
-				// 	}
-				// });
-
 
 				const res2 = await collectionsService.createToken({
 					projectId: projectID,
@@ -227,47 +211,18 @@ const Upload = (base: any) => {
 					}
 				})
 
-				// const res2 = await fetch(`${METADATA_URL}/rpc/Collections/CreateToken`, requestOptions)
-				// const json2: any = await res2.json()
-
-				// create asset
-				const raw3 = JSON.stringify({
-					"projectID": projectID,
-					"asset": {
-						"collectionId": collectionID,
-						"tokenId": String(randomTokenIDSpace),
-						"metadataField": "image"
+				const res = await collectionsService.createAsset({
+					projectId: projectID,
+					asset: {
+						id: Number(String(randomTokenIDSpace).slice(0,10)),
+						collectionId: collectionID,
+						tokenId: String(randomTokenIDSpace),
+						metadataField: "image"
 					}
-				});
-
-				const requestOptions3 = {
-					method: "POST",
-					headers: myHeaders,
-					body: raw3,
-				};
-
-				const res3 = await fetch(`${METADATA_URL}/rpc/Collections/CreateAsset`, requestOptions3)
-				const json3: any = await res3.json()
+				})
 
 				// upload asset
-				const uploadAssetRes = await base.uploadAsset(projectID, collectionID, json3.asset.id, String(randomTokenIDSpace), imageUrl)
-
-				const raw4 = JSON.stringify({
-					"projectID": projectID,
-					"collectionID": collectionID,
-					"private": false,
-					"tokenID": String(randomTokenIDSpace)
-				});
-
-				const requestOptions4 = {
-					method: "POST",
-					headers: myHeaders,
-					body: raw4,
-				};
-
-				// update token to not be private
-				const res4 = await fetch(`${METADATA_URL}/rpc/Collections/UpdateToken`, requestOptions4)
-				const json4 = await res4.json()
+				const uploadAssetRes = await base.uploadAsset(projectID, collectionID, res.asset.id, String(randomTokenIDSpace), imageUrl)
 
 				return {url: uploadAssetRes.url, tokenID: String(randomTokenIDSpace)}
 			}catch(err){
@@ -401,10 +356,10 @@ const fullPaginationDay = async (env: Env, address: string) => {
     };
 
     // query Sequence Indexer for all token transaction history on Mumbai
-
 	let txHistory: any
 	let firstLoop = true;
 	let finished = true;
+
     // if there are more transactions to log, proceed to paginate
     while(firstLoop || (!finished && txHistory.page.more)){  
 		if(firstLoop){
