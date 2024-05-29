@@ -478,8 +478,8 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 			} else {
 				const loot = await lootbox.generate()
 				const id = await lootbox.getInferenceWithItem(loot.loot.name)
-				const resObject = await lootbox.getInferenceStatus(id)
-				const response = await lootbox.upload(loot.loot.name + " " + loot.loot.type, loot.attributes, resObject.inference.images[0].url)
+				const inferenceObject = await lootbox.getInferenceStatus(id)
+				const response = await lootbox.upload(loot.loot.name + " " + loot.loot.type, loot.attributes, inferenceObject.inference.images[0].url)
 				return new Response(JSON.stringify({loot: loot, image: response.url, name: loot.loot.name, tokenID: response.tokenID}), { status: 200 });
 			}
 		} catch (error) {
