@@ -1,6 +1,7 @@
 import { networks, findSupportedNetwork, NetworkConfig } from '@0xsequence/network'
 import { ethers } from 'ethers'
 import { Session, SessionSettings } from '@0xsequence/auth'
+import { SequenceCollections } from '@0xsequence/metadata'
 
 export interface Env {
 	DEV: boolean;
@@ -156,6 +157,9 @@ const Upload = (base: any) => {
 			METADATA_URL = 'https://metadata.sequence.app'
 		}
 
+		// TODO
+		// const collectionsService = new SequenceCollections(METADATA_URL, base.env.JWT_ACCESS_KEY)
+
 		// Construct the endpoint URL
 		const endpointURL = `${METADATA_URL}/projects/${projectID}/collections/${collectionID}/tokens/${tokenID}/upload/${assetID}`;
 
@@ -190,77 +194,40 @@ const Upload = (base: any) => {
 				METADATA_URL = 'https://metadata.sequence.app'
 			}
 
-			try{
-				const myHeaders = new Headers();
-				myHeaders.append("Content-Type", "application/json");
-				myHeaders.append("Authorization", `Bearer ${base.env.JWT_ACCESS_KEY}`);
+			try {
 				
+				const collectionsService = new SequenceCollections(METADATA_URL, base.env.JWT_ACCESS_KEY)
+
 				const collectionID = base.env.COLLECTION_ID
 				const projectID = base.env.PROJECT_ID
 
 				// tokenID
 				const randomTokenIDSpace = ethers.BigNumber.from(ethers.utils.hexlify(ethers.utils.randomBytes(20)))
 
-				// create token
-				const stringBody = JSON.stringify({
-					"projectID": projectID,
-					"collectionID": collectionID,
-					"token": {
-						"tokenId": String(randomTokenIDSpace),
-						"name": name,
-						"description": "A free lootbox mini-game available for use in any game that requires collectible rewards",
-						"decimals": 0,
-						"attributes": attributes
+				const res1 = await collectionsService.createToken({
+					projectId: projectID,
+					collectionId: collectionID,
+					token: {
+						tokenId: String(randomTokenIDSpace),
+						name: name,
+						description: "A free lootbox mini-game available for use in any game that requires collectible rewards",
+						decimals: 0,
+						attributes: attributes
 					}
-				});
+				})
 
-				const requestOptions = {
-					method: "POST",
-					headers: myHeaders,
-					body: stringBody,
-				};
-
-				const res = await fetch(`${METADATA_URL}/rpc/Collections/CreateToken`, requestOptions)
-				const json: any = await res.json()
-
-				// create asset
-				const stringBody2 = JSON.stringify({
-					"projectID": projectID,
-					"asset": {
-						"collectionId": collectionID,
-						"tokenId": String(randomTokenIDSpace),
-						"metadataField": "image"
+				const res2 = await collectionsService.createAsset({
+					projectId: projectID,
+					asset: {
+						id: Number(String(randomTokenIDSpace).slice(0,10)),
+						collectionId: collectionID,
+						tokenId: String(randomTokenIDSpace),
+						metadataField: "image"
 					}
-				});
+				})
 
-				const requestOptions2 = {
-					method: "POST",
-					headers: myHeaders,
-					body: stringBody2,
-				};
-
-				const res2 = await fetch(`${METADATA_URL}/rpc/Collections/CreateAsset`, requestOptions2)
-				const json2: any = await res2.json()
-				console.log(json2)
 				// upload asset
-				const uploadAssetRes = await base.uploadAsset(projectID, collectionID, json2.asset.id, String(randomTokenIDSpace), imageUrl)
-
-				// update token to not be private
-				const stringBody3 = JSON.stringify({
-					"projectID": projectID,
-					"collectionID": collectionID,
-					"private": false,
-					"tokenID": String(randomTokenIDSpace)
-				});
-
-				const requestOptions3 = {
-					method: "POST",
-					headers: myHeaders,
-					body: stringBody3,
-				};
-
-				const res3 = await fetch(`${METADATA_URL}/rpc/Collections/UpdateToken`, requestOptions3)
-				const json3 = await res3.json()
+				const uploadAssetRes = await base.uploadAsset(projectID, collectionID, res2.asset.id, String(randomTokenIDSpace), imageUrl)
 
 				return {url: uploadAssetRes.url, tokenID: String(randomTokenIDSpace)}
 			}catch(err){
@@ -397,6 +364,7 @@ const fullPaginationDay = async (env: Env, address: string) => {
 	let txHistory: any
 	let firstLoop = true;
 	let finished = true;
+
     // if there are more transactions to log, proceed to paginate
     while(firstLoop || (!finished && txHistory.page.more)){  
 		if(firstLoop){
@@ -518,9 +486,9 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 				}
 			} else {
 				const loot = await lootbox.generate()
-				const inferenceId = await lootbox.getInferenceWithItem(loot.loot.name + " " + loot.loot.type)
-				const resObject = await lootbox.getInferenceStatus(inferenceId)
-				const response = await lootbox.upload(loot.loot.name, loot.attributes, resObject.inference.images[0].url)
+				const id = await lootbox.getInferenceWithItem(loot.loot.name)
+				const inferenceObject = await lootbox.getInferenceStatus(id)
+				const response = await lootbox.upload(loot.loot.name + " " + loot.loot.type, loot.attributes, inferenceObject.inference.images[0].url)
 				return new Response(JSON.stringify({loot: loot, image: response.url, name: loot.loot.name, tokenID: response.tokenID}), { status: 200 });
 			}
 		} catch (error) {
