@@ -169,7 +169,6 @@ const Upload = (base: any) => {
 			method: 'PUT',
 			body: formData,
 			headers: {
-			  'X-Access-Key': base.env.PROJECT_ACCESS_KEY,
 			  'Authorization': `Bearer ${base.env.JWT_ACCESS_KEY}`, // Put your token here
 			},
 		  });
@@ -179,6 +178,7 @@ const Upload = (base: any) => {
 
 		  return data;
 		}catch(err){
+			console.log('error uploading image')
 			console.log(err)
 		}
 	}
@@ -204,27 +204,40 @@ const Upload = (base: any) => {
 				// tokenID
 				const randomTokenIDSpace = ethers.BigNumber.from(ethers.utils.hexlify(ethers.utils.randomBytes(20)))
 
-				const res1 = await collectionsService.createToken({
-					projectId: projectID,
-					collectionId: collectionID,
-					token: {
-						tokenId: String(randomTokenIDSpace),
-						name: name,
-						description: "A free lootbox mini-game available for use in any game that requires collectible rewards",
-						decimals: 0,
-						attributes: attributes
-					}
-				})
-
-				const res2 = await collectionsService.createAsset({
-					projectId: projectID,
-					asset: {
-						id: Number(String(randomTokenIDSpace).slice(0,10)),
+				try {
+					const res1 = await collectionsService.createToken({
+						projectId: projectID,
 						collectionId: collectionID,
-						tokenId: String(randomTokenIDSpace),
-						metadataField: "image"
-					}
-				})
+						token: {
+							tokenId: String(randomTokenIDSpace),
+							name: name,
+							description: "A free lootbox mini-game available for use in any game that requires collectible rewards",
+							decimals: 0,
+							attributes: attributes
+						}
+					})
+	
+				} catch(err){
+					console.log('error creating token')
+					console.log(err)
+				}
+
+				let res2;
+
+				try {
+					res2 = await collectionsService.createAsset({
+						projectId: projectID,
+						asset: {
+							id: Number(String(randomTokenIDSpace).slice(0,10)),
+							collectionId: collectionID,
+							tokenId: String(randomTokenIDSpace),
+							metadataField: "image"
+						}
+					})
+				} catch(err){
+					console.log('error creating asset')
+					console.log(err)
+				}
 
 				// upload asset
 				const uploadAssetRes = await base.uploadAsset(projectID, collectionID, res2.asset.id, String(randomTokenIDSpace), imageUrl)
