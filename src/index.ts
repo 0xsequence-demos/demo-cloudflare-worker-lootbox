@@ -506,7 +506,7 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 			}
 		} catch (error) {
 			console.log(error)
-			return new Response('Error', { status: 500 }); // Handle errors
+			return new Response(JSON.stringify(error), { status: 500 }); // Handle errors
 		}
 	} else {
 		return new Response('Bad Origin', { status: 500 }); // Handle errors
