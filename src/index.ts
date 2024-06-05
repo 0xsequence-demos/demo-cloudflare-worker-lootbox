@@ -22,6 +22,60 @@ export interface Env {
 	JWT_ACCESS_KEY: string;
 }
 
+class StringUtils {
+    static toSnakeCase = (str: any) => {
+        return str.toLowerCase().replace(/\s+/g, '_');
+    }
+    
+    static removeCharacter = (str: any, charToRemove: any)=>{
+        return str.replace(new RegExp(charToRemove, 'g'), '');
+    }
+
+    static capitalizeFirstWord(str: any) {
+        // Check if the string is not empty
+        if (str.length === 0) return str;
+        
+        // Convert the first character to uppercase and concatenate the rest of the string
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+    
+    static formatStatString = (str: any, main = true) => {
+        if(str == null ) return []
+        const regex = /^(.*?)\s*([+-]?\d+)(-)?(\d+)?(%?)$/;
+        const matches = str.match(regex);
+        let formattedResult = [];
+      
+        if (matches) {
+            let [_, stat_name, firstValue, rangeIndicator, secondValue, percentageSymbol] = matches;
+            stat_name = StringUtils.removeCharacter(stat_name, ':')
+            const baseDisplayType = StringUtils.toSnakeCase(stat_name);
+            const isPercentage = percentageSymbol === '%';
+      
+            if (rangeIndicator === '-') {
+                formattedResult.push({
+                    "display_type": main ? baseDisplayType + "_min" : "sub_stats_"+baseDisplayType + "_min", 
+                    "trait_type": stat_name + " Minimum", 
+                    "value": parseInt(firstValue, 10) + (isPercentage ? '%' : '')
+                });
+      
+                formattedResult.push({
+                    "display_type": main ? baseDisplayType + "_max" : "sub_stats_"+baseDisplayType + "_max", 
+                    "trait_type": stat_name + " Maximum", 
+                    "value": parseInt(secondValue, 10) + (isPercentage ? '%' : '')
+                });
+            } else {
+                formattedResult.push({
+                    "display_type": main ? baseDisplayType : "sub_stats_"+baseDisplayType, 
+                    "trait_type": stat_name, 
+                    "value": parseInt(firstValue, 10) + (isPercentage ? '%' : '')
+                });
+            }
+        } 
+      
+        return formattedResult;
+      }
+};
+
 const generate = async (): Promise<any> => {
 	try {
 		const url = 'https://flask-production-2641.up.railway.app/'; // External API endpoint
@@ -47,14 +101,14 @@ const generate = async (): Promise<any> => {
 		})
 
 		// main stats
-		attributes.push(...formatStatString(data[defend ? 'armor' : 'weapon'].main_stats[0], true))
+		attributes.push(...StringUtils.formatStatString(data[defend ? 'armor' : 'weapon'].main_stats[0], true))
 
 		// sub stats
 		const sub_stats = data[defend ? 'armor' : 'weapon'].stats
 
 		// tier
 		sub_stats.map((stats: any) => {
-			attributes.push(...formatStatString(stats, false))
+			attributes.push(...StringUtils.formatStatString(stats, false))
 		})
 
 		// type
@@ -75,48 +129,6 @@ const generate = async (): Promise<any> => {
 		console.log(err)
 		throw new Error(err)
 	}
-}
-
-const toSnakeCase = (str: any) => {
-	return str.toLowerCase().replace(/\s+/g, '_');
-}
-const removeCharacter = (str: any, charToRemove: any) => {
-	return str.replace(new RegExp(charToRemove, 'g'), '');
-}
-const formatStatString = (str: any, main = true) => {
-	if(str == null ) return []
-	const regex = /^(.*?)\s*([+-]?\d+)(-)?(\d+)?(%?)$/;
-	const matches = str.match(regex);
-	let formattedResult = [];
-	
-	if (matches) {
-		let [_, stat_name, firstValue, rangeIndicator, secondValue, percentageSymbol] = matches;
-		stat_name = removeCharacter(stat_name, ':')
-		const baseDisplayType = toSnakeCase(stat_name);
-		const isPercentage = percentageSymbol === '%';
-	
-		if (rangeIndicator === '-') {
-			formattedResult.push({
-				"display_type": main ? baseDisplayType + "_min" : "sub_stats_"+baseDisplayType + "_min", 
-				"trait_type": stat_name + " Minimum", 
-				"value": parseInt(firstValue, 10) + (isPercentage ? '%' : '')
-			});
-	
-			formattedResult.push({
-				"display_type": main ? baseDisplayType + "_max" : "sub_stats_"+baseDisplayType + "_max", 
-				"trait_type": stat_name + " Maximum", 
-				"value": parseInt(secondValue, 10) + (isPercentage ? '%' : '')
-			});
-		} else {
-			formattedResult.push({
-				"display_type": main ? baseDisplayType : "sub_stats_"+baseDisplayType, 
-				"trait_type": stat_name, 
-				"value": parseInt(firstValue, 10) + (isPercentage ? '%' : '')
-			});
-		}
-	} 
-	
-	return formattedResult;
 }
 
 const uploadAsset = async (env: Env, projectID: any, collectionID: any, assetID: any, tokenID: any, url: any) => {
@@ -187,7 +199,7 @@ const upload = async (env: Env, name: any, attributes: any, imageUrl: any) => {
 				token: {
 					tokenId: String(randomTokenIDSpace),
 					name: name,
-					description: "A free lootbox mini-game available for use in any game that requires collectible rewards",
+					description: "A free AI treasure chest mini-game",
 					decimals: 0,
 					attributes: attributes
 				}
@@ -216,7 +228,7 @@ const upload = async (env: Env, name: any, attributes: any, imageUrl: any) => {
 		}
 
 		// upload asset
-		const uploadAssetRes: any = await uploadAsset(env, projectID, collectionID, res2.asset.id, String(randomTokenIDSpace), imageUrl)
+		const uploadAssetRes: any = await uploadAsset(env, projectID, collectionID, res2!.asset.id, String(randomTokenIDSpace), imageUrl)
 
 		return {url: uploadAssetRes.url, tokenID: String(randomTokenIDSpace)}
 	}catch(err){
@@ -267,6 +279,7 @@ const getInferenceWithItem = async (env: Env, prompt: any) => {
 		return {inferenceId: null, err: "ERROR"}
 	}
 }
+
 const getInferenceObjectWithPolling = async (env: Env, id: any) => {
 	console.log('getting inference status for: ', id.inferenceId)
 	const inferenceId = id.inferenceId
@@ -459,8 +472,11 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 	const originUrl = new URL(request.url);
 	const referer = request.headers.get('Referer');
 	
-	if(referer.toString() == env.CLIENT_URL){
-		if (request.method === "OPTIONS") {
+	if(referer.toString() != env.CLIENT_URL){
+		return new Response('Bad Origin', { status: 500 }); // Handle errors
+	}
+	
+	if (request.method === "OPTIONS") {
 			return new Response(null, {
 				headers: {
 					// Allow requests from any origin - adjust this as necessary
@@ -479,45 +495,41 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 					"Access-Control-Max-Age": "86400", // 24 hours
 				}
 			});
-		}
-
-		try {
-			if(env.DEV) env.PROJECT_ACCESS_KEY = env.PROJECT_ACCESS_KEY_DEV
-			else env.PROJECT_ACCESS_KEY = env.PROJECT_ACCESS_KEY_PROD
-
-			const payload = await request.json()
-			const { address, tokenID, mint }: any = payload
-
-			// OPTIONAL
-			// if(address.toLowerCase() != env.ADMIN.toLowerCase()){
-			// 	if(!await hasDailyMintAllowance(env, address)){
-			// 		return new Response(JSON.stringify({limitExceeded: true}), { status: 400 })
-			// 	}
-			// }
-
-			if(mint){
-				try {
-					const txn = await callContract(env, env.CONTRACT_ADDRESS, address, tokenID)
-					return new Response(JSON.stringify({txnHash: txn.hash}), { status: 200 })
-				} catch(error: any) {
-					console.log(error)
-					return new Response(JSON.stringify(error), { status: 400 })
-				}
-			} else {
-				const loot = await generate()
-				const id = await getInferenceWithItem(env, loot.loot.name)
-				const inferenceObject = await getInferenceObjectWithPolling(env, id)
-				const response = await upload(env, loot.loot.name + " " + loot.loot.type, loot.attributes, inferenceObject.inference.images[0].url)
-				return new Response(JSON.stringify({loot: loot, image: response.url, name: loot.loot.name, tokenID: response.tokenID}), { status: 200 });
-			}
-		} catch (error) {
-			console.log(error)
-			return new Response(JSON.stringify(error), { status: 500 }); // Handle errors
-		}
-	} else {
-		return new Response('Bad Origin', { status: 500 }); // Handle errors
 	}
 
+	try {
+		if(env.DEV) env.PROJECT_ACCESS_KEY = env.PROJECT_ACCESS_KEY_DEV
+		else env.PROJECT_ACCESS_KEY = env.PROJECT_ACCESS_KEY_PROD
+
+		const payload = await request.json()
+		const { address, tokenID, mint }: any = payload
+
+		// OPTIONAL
+		// if(address.toLowerCase() != env.ADMIN.toLowerCase()){
+		// 	if(!await hasDailyMintAllowance(env, address)){
+		// 		return new Response(JSON.stringify({limitExceeded: true}), { status: 400 })
+		// 	}
+		// }
+
+		if(mint){
+			try {
+				const txn = await callContract(env, env.CONTRACT_ADDRESS, address, tokenID)
+				return new Response(JSON.stringify({txnHash: txn.hash}), { status: 200 })
+			} catch(error: any) {
+				console.log(error)
+				return new Response(JSON.stringify(error), { status: 400 })
+			}
+		} else {
+			const loot = await generate()
+			const id = await getInferenceWithItem(env, loot.loot.name)
+			const inferenceObject = await getInferenceObjectWithPolling(env, id)
+			const response = await upload(env, loot.loot.name + " " + loot.loot.type, loot.attributes, inferenceObject.inference.images[0].url)
+			return new Response(JSON.stringify({loot: loot, image: response.url, name: loot.loot.name, tokenID: response.tokenID}), { status: 200 });
+		}
+	} catch (error) {
+		console.log(error)
+		return new Response(JSON.stringify(error), { status: 500 }); // Handle errors
+	}
 }
 
 export default {
