@@ -113,14 +113,14 @@ const generateLoot = async (): Promise<Loot> => {
         })
 
         // main stats
-        attributes.push(StringUtils.formatStatString(data[defend ? 'armor' : 'weapon'].main_stats[0], true))
+        attributes.push(...StringUtils.formatStatString(data[defend ? 'armor' : 'weapon'].main_stats[0], true))
 
         // sub stats
         const sub_stats = data[defend ? 'armor' : 'weapon'].stats
 
         // tier
         sub_stats.map((stats: any) => {
-          attributes.push(StringUtils.formatStatString(stats, false))
+          attributes.push(...StringUtils.formatStatString(stats, false))
         })
 
         // type
