@@ -15,7 +15,6 @@ export interface Env {
 	ACCESS_KEY_ID: string;
 	PROJECT_ID: number;
 	COLLECTION_ID: string;
-	PROJECT_ACCESS_KEY: string;
 	PROJECT_ACCESS_KEY_DEV: string;
 	PROJECT_ACCESS_KEY_PROD: string;
 	JWT_ACCESS_KEY: string;
@@ -122,17 +121,6 @@ const Strings = (base: any) => {
 	  }
 	return base;
 };
-
-const Time = (base: any) => {
-	return {
-		...base, 
-		wait: async (ms: any) => new Promise((res) => setTimeout(res, ms)),
-		getCurrentSecond: () => {
-			const now = new Date()
-			return now.getSeconds()
-		}
-	}
-}
 
 const Upload = (base: any) => {
 	base.uploadAsset = async (projectID: any, collectionID: any, assetID: any, tokenID: any, url: any) => {
@@ -269,9 +257,8 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 			const payload = await request.json()
 			const { address, tokenID, mint }: any = payload
 
-			let lootbox = ProcessInferencePool(
+			let treasureChest = ProcessInferencePool(
 				Inference(
-					Time(
 						Strings(
 							Upload(
 								{
@@ -279,7 +266,6 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 								}
 							)
 						)
-					)
 				)
 			)
 
@@ -292,7 +278,7 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 					return new Response(JSON.stringify(error), { status: 400 })
 				}
 			} else {
-				const loot = await lootbox.generate()
+				const loot = await treasureChest.generate()
 				// TODO: get inference with item
 				// TODO: poll to get inference status with id
 				// TODO: upload loot and media
@@ -319,7 +305,7 @@ export default {
 	}
 };
 
-const callContract = async (env: Env, collectibleAddress: string, address: string, tokenID: number): Promise<ethers.providers.TransactionResponse> => {
+const callContract = async (env: Env, collectibleAddress: string, address: string, tokenID: number): Promise<string> => {
 	const chainConfig: any = findSupportedNetwork(env.CHAIN_HANDLE)
 
 	const provider = new ethers.providers.StaticJsonRpcProvider({
