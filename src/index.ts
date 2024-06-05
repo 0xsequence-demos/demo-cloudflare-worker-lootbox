@@ -267,7 +267,7 @@ const getInferenceWithItem = async (env: Env, prompt: any) => {
 		return {inferenceId: null, err: "ERROR"}
 	}
 }
-const getInferenceStatus = async (env: Env, id: any) => {
+const getInferenceObjectWithPolling = async (env: Env, id: any) => {
 	console.log('getting inference status for: ', id.inferenceId)
 	const inferenceId = id.inferenceId
 
@@ -506,7 +506,7 @@ async function handleRequest(request: any, env: Env, ctx: ExecutionContext) {
 			} else {
 				const loot = await generate()
 				const id = await getInferenceWithItem(env, loot.loot.name)
-				const inferenceObject = await getInferenceStatus(env, id)
+				const inferenceObject = await getInferenceObjectWithPolling(env, id)
 				const response = await upload(env, loot.loot.name + " " + loot.loot.type, loot.attributes, inferenceObject.inference.images[0].url)
 				return new Response(JSON.stringify({loot: loot, image: response.url, name: loot.loot.name, tokenID: response.tokenID}), { status: 200 });
 			}
