@@ -47,14 +47,14 @@ const generate = async (): Promise<any> => {
 		})
 
 		// main stats
-		attributes.push(...base.formatStatString(data[defend ? 'armor' : 'weapon'].main_stats[0], true))
+		attributes.push(...formatStatString(data[defend ? 'armor' : 'weapon'].main_stats[0], true))
 
 		// sub stats
 		const sub_stats = data[defend ? 'armor' : 'weapon'].stats
 
 		// tier
 		sub_stats.map((stats: any) => {
-			attributes.push(...base.formatStatString(stats, false))
+			attributes.push(...formatStatString(stats, false))
 		})
 
 		// type
@@ -172,7 +172,7 @@ const upload = async (env: Env, name: any, attributes: any, imageUrl: any) => {
 
 	try {
 		
-		const collectionsService = new SequenceCollections(METADATA_URL, base.env.JWT_ACCESS_KEY)
+		const collectionsService = new SequenceCollections(METADATA_URL, env.JWT_ACCESS_KEY)
 
 		const collectionID = Number(env.COLLECTION_ID)
 		const projectID = env.PROJECT_ID
@@ -235,7 +235,7 @@ function capitalizeFirstWord(str: any) {
 
 const getInferenceWithItem = async (env: Env, prompt: any) => {
 	try {
-		const res: any = await fetch(`https://api.cloud.scenario.com/v1/models/${base.env.SCENARIO_MODEL_ID}/inferences`, {
+		const res: any = await fetch(`https://api.cloud.scenario.com/v1/models/${env.SCENARIO_MODEL_ID}/inferences`, {
 			method: 'POST',
 			headers: {
 				'Authorization': `Basic ${env.SCENARIO_API_KEY}`,
@@ -259,8 +259,8 @@ const getInferenceWithItem = async (env: Env, prompt: any) => {
 				})
 		})
 
-		const data = res.json()
-
+		const data = await res.json()
+		console.log(data)
 		return {inferenceId: data.inference.id}
 	}catch(err){
 		console.log(err)
